@@ -1,0 +1,6 @@
+dp-accounting==0.0.2
+jupyter==1.0.0
+matplotlib==3.5.1
+notebook==6.4.10
+numpy==1.22.3
+scipy==1.8.0
