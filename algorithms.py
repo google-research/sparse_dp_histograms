@@ -175,7 +175,7 @@ class Hist:
     self.bitwith_for_counts = 8 * np.ceil(np.log2(self.n) / 8.)
     self.elgamal_ciphertext = microbenchmarks['ElGamalSize'] * 8
     self.debug = debug
-    self.expected_additional_dummy_pseudo_indices = 0
+    self.expected_dummy_pseudo_indices = None
     self.additive_he_ciphertext_size_in_bits = microbenchmarks[he_mode +
                                                                'Size'] * 8
     self.encrypted_hash_size_in_bits = 2 * self.elgamal_ciphertext
@@ -209,7 +209,9 @@ class Hist:
       ------
       B sends noisy encrypted counts to A,
       including some fake counts from SampleBuckets.
-      Note that B does not need to send (pseudo)indices, just encrypted counts.
+
+      Additionally, B sends elGamal encryptions of all different indices,
+      for A to select the ones that need to be decrypted.
 
       Also note that we're assuming a worst-case input with n different
       elements. For specific input distributions (i.e. those with few HHs),
@@ -224,32 +226,27 @@ class Hist:
                                              epsilon_leakage)
     self.expected_num_dummies_for_thresholding_in_step_3 = num_dummies_for_thresholding
     return (num_dummies_for_thresholding + self.n +
-            self.expected_additional_dummy_pseudo_indices) * \
-                (self.additive_he_ciphertext_size_in_bits)
+            self.expected_dummy_pseudo_indices) * \
+                (self.additive_he_ciphertext_size_in_bits + self.elgamal_ciphertext)
 
   def get_expected_comm_in_step_4(self):
     """
       A -> B
       ------
-      A sends to B a binary array denoting which counts got thresholded.
-      We divide by tau, assuming a worst case behavior in the previous step,
-      where we bounded the number of non-zero indices by n.
+      A sends to B ElGamal encryptions of all indices whose value
+      is above the threshold tau.
+      Note that all dummies are discarded by the thresholding step.
     """
-    return self.get_expected_comm_in_step_3(
-    ) / self.additive_he_ciphertext_size_in_bits
+    return self.n / self.tau * self.elgamal_ciphertext
 
   def get_expected_comm_in_step_5(self):
     """
       B -> A
       ------
-      B sends to A the pseudoindices (deterministic encryptions)
-      of the indices that did not get thresholded, as indicated in the
-      bitstring sent by A in the previous step.
-
-      Note that all dummies are discarded by the thresholding in the previous
-      step.
+      B replies with partial decryptions for the ElGamal encryptions
+      received from A in the previous step.
     """
-    return self.n / self.tau * self.elgamal_ciphertext
+    return self.get_expected_comm_in_step_4()
 
   def get_expected_comm(self, unit='bits', parties={'Helper 1', 'Helper 2'}):
     """
@@ -374,11 +371,12 @@ class Dup_Hist(Hist):
     if 'Client' in parties:
       online_time += self.n * time_per_client
 
-    num_dummies_step_2 = self.get_expected_comm_in_step_2() / (
-        self.additive_he_ciphertext_size_in_bits +
-        self.encrypted_hash_size_in_bits)
-    num_dummies_step_3 = self.get_expected_comm_in_step_3(
-    ) / self.additive_he_ciphertext_size_in_bits
+    self.get_expected_comm_in_step_2()
+    num_dummies_step_2 = self.expected_num_dummies_step_2
+    num_different_indices_step_2 = self.n + self.expected_dummy_pseudo_indices
+
+    self.get_expected_comm_in_step_3()
+    num_dummies_step_3 = self.expected_num_dummies_for_thresholding_in_step_3
 
     # Step 2.
     num_ciphertexts = self.n + num_dummies_step_2
@@ -398,8 +396,8 @@ class Dup_Hist(Hist):
 
     # Step 3.
     if 'Helper 2' in parties:
-      # Decrypt all three components.
-      online_time += num_ciphertexts * (2 * microbenchmarks['ElGamalDecrypt'] +
+      # Decrypt first and third components.
+      online_time += num_ciphertexts * (microbenchmarks['ElGamalDecrypt'] +
                                         microbenchmarks['HybridDecrypt'])
 
       # Homomorphically add up ciphertexts in the same buckets. Worst case: all in
@@ -409,7 +407,7 @@ class Dup_Hist(Hist):
     # After aggregating, all dummies that are the same will disappear, so the
     # number of ciphertexts we have is only self.n + number of different
     # dummies.
-    num_ciphertexts = self.n + self.T
+    num_ciphertexts = self.n + self.expected_dummy_pseudo_indices
 
     # Step 3d: Dummies that Server 2 adds
     num_ciphertexts += num_dummies_step_3
@@ -428,12 +426,18 @@ class Dup_Hist(Hist):
                                                         'Encrypt']
       online_time += num_ciphertexts * microbenchmarks[self.he_mode + 'Add']
 
-      # Rerandomize and send all ciphertexts.
+      # Rerandomize elgamal ciphertexts corresponding to indices,
+      # and encrypt dummies added in this step, using a fake index.
+      offline_time += (num_ciphertexts) * microbenchmarks['ElGamalEncrypt']
+      online_time +=  (num_ciphertexts - num_dummies_step_3) * microbenchmarks['ElGamalRerandomize']
+
+      # Rerandomize and send all ciphertexts corresponding to values.
       online_time += num_ciphertexts * microbenchmarks[self.he_mode +
                                                        'Rerandomize']
 
     # Thresholding Step 2.
     if 'Helper 1' in parties:
+      # Decrypt values
       online_time += num_ciphertexts * microbenchmarks[self.he_mode + 'Decrypt']
 
     # After thresholding, everything below tau disappears. In the worst case, we
@@ -441,14 +445,19 @@ class Dup_Hist(Hist):
     num_ciphertexts = self.n / self.tau
 
     # Step 5.
-    if 'Helper 2' in parties:
-      # Rerandomize all d_i'' ciphertexts
+    if 'Helper 1' in parties:
+      # Rerandomize elgamal ciphertexts corresponding to the final indices / bucket IDs.
       offline_time += num_ciphertexts * microbenchmarks['ElGamalEncrypt']
-      online_time += num_ciphertexts * microbenchmarks['ElGamalRerandomize']
+      online_time +=  num_ciphertexts * microbenchmarks['ElGamalRerandomize']
 
     # Step 6.
+    if 'Helper 2' in parties:
+      # partial decryption of final indices / bucket IDs.
+      online_time += num_ciphertexts * microbenchmarks['ElGamalDecrypt']
+
+    # Step 7.
     if 'Helper 1' in parties:
-      # Decrypt bucket IDs.
+      # Decrypt final indices / bucket IDs.
       online_time += num_ciphertexts * microbenchmarks['ElGamalDecrypt']
 
     return (offline_time, online_time)
@@ -556,7 +565,7 @@ class HH_Hist(Hist):
     delta_low_counts = self.budget_split['leakage'] * self.delta
     num_dummies_to_mask_low_counts = (0.5 * T * (T + 1)) * \
       np.ceil(2 / epsilon_low_counts * np.log(1./delta_low_counts)) # Expectation of a shifted Laplace
-    self.expected_additional_dummy_pseudo_indices = (
+    self.expected_dummy_pseudo_indices = (
         threshold_optimization.num_pseudo_indices_sample_frequency_dummies(
             T, epsilon_low_counts, delta_low_counts))
     return num_dummies_to_mask_low_counts
