@@ -19,3 +19,9 @@ license = "GPL-3.0-or-later"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+cxx = "1.0"
+rug = "1.22"
+gmp-mpfr-sys = "1.6"
+
+[build-dependencies]
+cxx-build = "1.0"
