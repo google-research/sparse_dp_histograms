@@ -1,3 +1,4 @@
 [submodule "third_party/bicycl"]
 	path = third_party/bicycl
-	url = https://gite.lirmm.fr/crypto/bicycl.git
+	url = https://github.com/lenerd/BICYCL.git
+	branch = bicycl-rs
