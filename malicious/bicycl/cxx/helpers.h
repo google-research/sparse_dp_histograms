@@ -15,6 +15,7 @@
 
 #include <memory>
 
+#include "bicycl/cxx/rand.h"
 #include "bicycl/gmp_extras.hpp"
 #include "bicycl/qfi.hpp"
 #include "trycatch.h"

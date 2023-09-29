@@ -30,13 +30,18 @@ fn main() {
         .include(gmp_include_dir)
         // We need access to the BICYCL headers.
         .include(bicycl_path)
+        // Add non-header C++ files.
+        .file("cxx/rand.cc")
         // Compile this crate.
         .compile("bicycl");
 
-    // We need to link against the GMP library.
+    // We need to link against the GMP and OpenSSL libraries.
     println!("cargo:rustc-link-search={}", gmp_lib_dir);
+    println!("cargo:rustc-link-lib=gmp");
+    println!("cargo:rustc-link-lib=crypto");
 
     // We want to recompile whenever the C++ helper code is changed.
     println!("cargo:rerun-if-changed=cxx/helpers.h");
+    println!("cargo:rerun-if-changed=cxx/rand.h");
     println!("cargo:rerun-if-changed=cxx/trycatch.h");
 }
