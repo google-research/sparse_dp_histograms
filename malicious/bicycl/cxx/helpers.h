@@ -15,9 +15,11 @@
 
 #include <memory>
 
+#include "bicycl/CL_HSMqk.hpp"
 #include "bicycl/cxx/rand.h"
 #include "bicycl/gmp_extras.hpp"
 #include "bicycl/qfi.hpp"
+#include "bicycl/seclevel.hpp"
 #include "trycatch.h"
 
 namespace bicycl_rs_helpers {
@@ -80,6 +82,37 @@ inline std::unique_ptr<BICYCL::QFI> qfi_from_compressed_repr(
 // Wrapper around QFI's operator== method.
 inline bool qfi_eq(const BICYCL::QFI& lhs, const BICYCL::QFI& rhs) {
   return lhs == rhs;
+}
+
+// Wrapper around CL_HSMqk's default constructor.
+inline std::unique_ptr<BICYCL::CL_HSMqk> cl_hsmqk_new(const BICYCL::Mpz& q,
+                                                      size_t k,
+                                                      unsigned int s) {
+  BICYCL::SecLevel seclevel(s);
+  SecureRandGen randgen;
+  // The CL_HSMqk object does not keep a reference to the randgen around, so
+  // passing randgen here does not result in a dangling reference.
+  return std::make_unique<BICYCL::CL_HSMqk>(q, k, seclevel, randgen);
+}
+
+// Wrapper around CL_HSMqk's power_of_h method
+inline std::unique_ptr<BICYCL::QFI> cl_hsmqk_power_of_h(
+    const BICYCL::CL_HSMqk& cl_hsmqk, const BICYCL::Mpz& e) {
+  std::unique_ptr<BICYCL::QFI> output = std::make_unique<BICYCL::QFI>();
+  cl_hsmqk.power_of_h(*output, e);
+  return output;
+}
+
+// Wrapper around CL_HSMqk's power_of_f method
+inline std::unique_ptr<BICYCL::QFI> cl_hsmqk_power_of_f(
+    const BICYCL::CL_HSMqk& cl_hsmqk, const BICYCL::Mpz& e) {
+  return std::make_unique<BICYCL::QFI>(cl_hsmqk.power_of_f(e));
+}
+
+// Wrapper around CL_HSMqk's dlog_in_F method
+inline std::unique_ptr<BICYCL::Mpz> cl_hsmqk_dlog_in_F(
+    const BICYCL::CL_HSMqk& cl_hsmqk, const BICYCL::QFI& fm) {
+  return std::make_unique<BICYCL::Mpz>(cl_hsmqk.dlog_in_F(fm));
 }
 
 }  // namespace bicycl_rs_helpers
