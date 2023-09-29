@@ -38,4 +38,5 @@ fn main() {
 
     // We want to recompile whenever the C++ helper code is changed.
     println!("cargo:rerun-if-changed=cxx/helpers.h");
+    println!("cargo:rerun-if-changed=cxx/trycatch.h");
 }

@@ -17,6 +17,7 @@
 
 #include "bicycl/gmp_extras.hpp"
 #include "bicycl/qfi.hpp"
+#include "trycatch.h"
 
 namespace bicycl_rs_helpers {
 
