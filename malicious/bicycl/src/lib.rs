@@ -11,4 +11,5 @@
 // GNU General Public License for more details.
 
 pub mod error;
+pub mod group_element;
 mod mpz;

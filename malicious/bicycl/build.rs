@@ -23,7 +23,7 @@ fn main() {
     let bicycl_path = cargo_manifest_dir.join("../../third_party/bicycl/src");
 
     // Compile the cxx bridge code interfacing with C++.
-    cxx_build::bridges(["src/mpz.rs"])
+    cxx_build::bridges(["src/group_element.rs", "src/mpz.rs"])
         // Constant taken from the BICYCL code.
         .define("BICYCL_GMP_PRIMALITY_TESTS_ITERATION", "30")
         // We need access to the GMP headers.
