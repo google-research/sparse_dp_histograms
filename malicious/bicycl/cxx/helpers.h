@@ -89,6 +89,31 @@ inline bool qfi_eq(const BICYCL::QFI& lhs, const BICYCL::QFI& rhs) {
   return lhs == rhs;
 }
 
+// Wrapper around QFI's to_maximal_order  method.
+inline void qfi_to_maximal_order(const std::unique_ptr<BICYCL::QFI>& v,
+                                 const BICYCL::Mpz& l,
+                                 const BICYCL::Mpz& DeltaK) {
+  v->to_maximal_order(l, DeltaK, true /* always reduce */);
+}
+
+// Wrapper around ClassGroup's nucomp
+inline std::unique_ptr<BICYCL::QFI> class_group_nucomp(
+    const BICYCL::ClassGroup& cl, const BICYCL::QFI& lhs,
+    const BICYCL::QFI& rhs) {
+  std::unique_ptr<BICYCL::QFI> output = std::make_unique<BICYCL::QFI>();
+  cl.nucomp(*output, lhs, rhs);
+  return output;
+}
+
+// Wrapper around ClassGroup's nupow
+inline std::unique_ptr<BICYCL::QFI> class_group_nupow(
+    const BICYCL::ClassGroup& cl, const BICYCL::QFI& base,
+    const BICYCL::Mpz& exp) {
+  std::unique_ptr<BICYCL::QFI> output = std::make_unique<BICYCL::QFI>();
+  cl.nupow(*output, base, exp);
+  return output;
+}
+
 // Wrapper around CL_HSMqk's default constructor.
 inline std::unique_ptr<BICYCL::CL_HSMqk> cl_hsmqk_new(const BICYCL::Mpz& q,
                                                       size_t k,
@@ -118,6 +143,12 @@ inline std::unique_ptr<BICYCL::QFI> cl_hsmqk_power_of_f(
 inline std::unique_ptr<BICYCL::Mpz> cl_hsmqk_dlog_in_F(
     const BICYCL::CL_HSMqk& cl_hsmqk, const BICYCL::QFI& fm) {
   return std::make_unique<BICYCL::Mpz>(cl_hsmqk.dlog_in_F(fm));
+}
+
+// Wrapper around CL_HSMqk's from_Cl_DeltaK_to_Cl_Delta method
+inline void cl_hsmqk_from_Cl_DeltaK_to_Cl_Delta(
+    const BICYCL::CL_HSMqk& cl_hsmqk, const std::unique_ptr<BICYCL::QFI>& v) {
+  cl_hsmqk.from_Cl_DeltaK_to_Cl_Delta(*v);
 }
 
 }  // namespace bicycl_rs_helpers

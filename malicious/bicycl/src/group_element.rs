@@ -94,6 +94,17 @@ impl GroupElement {
     pub fn compress(&self) -> CompressedGroupElement {
         CompressedGroupElement::from_raw(ffi::qfi_to_compressed_repr(&self.qfi))
     }
+
+    /// Map an element of a  class group with non-fundamental discriminant into
+    /// the class group with the fundamental discriminant.
+    #[allow(non_snake_case)]
+    pub fn to_maximal_order(&mut self, conductor: &Integer, fundamental_discriminant: &Integer) {
+        unsafe {
+            let mpz_l = mpz::rug_integer_to_bicycl_mpz_ref(conductor);
+            let mpz_DeltaK = mpz::rug_integer_to_bicycl_mpz_ref(fundamental_discriminant);
+            ffi::qfi_to_maximal_order(&self.qfi, mpz_l.as_ref(), mpz_DeltaK.as_ref());
+        }
+    }
 }
 
 impl fmt::Debug for GroupElement {
@@ -229,6 +240,8 @@ mod ffi {
         ) -> UniquePtr<QFI>;
         #[namespace = "bicycl_rs_helpers"]
         fn qfi_eq(rhs: &QFI, lhs: &QFI) -> bool;
+        #[namespace = "bicycl_rs_helpers"]
+        fn qfi_to_maximal_order(qfi: &UniquePtr<QFI>, l: &Mpz, DeltaK: &Mpz);
 
         #[namespace = "BICYCL"]
         type QFICompressedRepresentation;
