@@ -11,6 +11,7 @@
 // GNU General Public License for more details.
 
 pub mod cl_context;
+pub mod encryption;
 pub mod error;
 pub mod group_element;
 mod mpz;
