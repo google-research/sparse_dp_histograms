@@ -47,6 +47,11 @@ inline std::unique_ptr<BICYCL::QFI> qfi_new_with_value(const BICYCL::Mpz& a,
   return std::make_unique<BICYCL::QFI>(a, b, c);
 }
 
+// Wrapper around QFI's copy constructor.
+inline std::unique_ptr<BICYCL::QFI> qfi_clone(const BICYCL::QFI& v) {
+  return std::make_unique<BICYCL::QFI>(v);
+}
+
 // Wrapper around QFI::discriminant, which returns an Mpz by value.
 inline std::unique_ptr<BICYCL::Mpz> qfi_get_discriminant(
     const BICYCL::QFI& qfi) {

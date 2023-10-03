@@ -106,6 +106,14 @@ impl fmt::Debug for GroupElement {
     }
 }
 
+impl Clone for GroupElement {
+    fn clone(&self) -> Self {
+        Self {
+            qfi: ffi::qfi_clone(&self.qfi),
+        }
+    }
+}
+
 impl PartialEq for GroupElement {
     fn eq(&self, other: &Self) -> bool {
         ffi::qfi_eq(&self.qfi, &other.qfi)
@@ -205,6 +213,8 @@ mod ffi {
         #[namespace = "bicycl_rs_helpers"]
         fn qfi_new_with_value(a: &Mpz, b: &Mpz, c: &Mpz) -> Result<UniquePtr<QFI>>;
         #[namespace = "bicycl_rs_helpers"]
+        fn qfi_clone(v: &QFI) -> UniquePtr<QFI>;
+        #[namespace = "bicycl_rs_helpers"]
         fn qfi_get_discriminant(qfi: &QFI) -> UniquePtr<Mpz>;
         #[namespace = "bicycl_rs_helpers"]
         fn qfi_eval(qfi: &QFI, x: &Mpz, y: &Mpz) -> UniquePtr<Mpz>;
@@ -262,6 +272,9 @@ mod tests {
         assert_eq!(*g.get_c(), c);
         assert_eq!(g.compute_discriminant(), compute_discriminant(&a, &b, &c));
         assert_eq!(g.eval(&x, &y), compute_evaluation(&a, &b, &c, &x, &y));
+
+        let h = g.clone();
+        assert_eq!(h, g);
     }
 
     #[test]
