@@ -14,4 +14,5 @@ pub mod cl_context;
 pub mod error;
 pub mod group_element;
 mod mpz;
+pub mod traits;
 mod utils;
