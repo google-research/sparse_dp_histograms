@@ -85,8 +85,8 @@ impl GroupElement {
             mpz::bicycl_mpz_to_rug_integer(ffi::qfi_eval(&self.qfi, mpz_x.as_ref(), mpz_y.as_ref()))
         }
     }
-    /// Negate the binary quadratic form.
-    pub fn neg(&mut self) {
+    /// Compute the inverse, i.e., negate the binary quadratic form.
+    pub fn invert(&mut self) {
         ffi::qfi_neg(&self.qfi);
     }
 
