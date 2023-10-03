@@ -20,8 +20,9 @@ license = "GPL-3.0-or-later"
 
 [dependencies]
 cxx = "1.0"
-rug = "1.22"
 gmp-mpfr-sys = "1.6"
+rug = "1.22"
+rand = "0.8"
 
 [build-dependencies]
 cxx-build = "1.0"
