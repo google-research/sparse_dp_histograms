@@ -245,7 +245,6 @@ mod ffi {
 
         #[namespace = "BICYCL"]
         type QFICompressedRepresentation;
-        fn nbits(self: &QFICompressedRepresentation) -> usize;
     }
 }
 

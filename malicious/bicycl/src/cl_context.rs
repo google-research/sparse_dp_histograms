@@ -292,13 +292,10 @@ mod ffi {
         fn k(self: &CL_HSMqk) -> usize;
         fn q(self: &CL_HSMqk) -> &Mpz;
         fn M(self: &CL_HSMqk) -> &Mpz;
-        fn h(self: &CL_HSMqk) -> &QFI;
         fn Delta(self: &CL_HSMqk) -> &Mpz;
         fn DeltaK(self: &CL_HSMqk) -> &Mpz;
         fn Cl_Delta(self: &CL_HSMqk) -> &ClassGroup;
         fn Cl_DeltaK(self: &CL_HSMqk) -> &ClassGroup;
-        fn compact_variant(self: &CL_HSMqk) -> bool;
-        fn large_message_variant(self: &CL_HSMqk) -> bool;
         fn secretkey_bound(self: &CL_HSMqk) -> &Mpz;
         fn cleartext_bound(self: &CL_HSMqk) -> &Mpz;
         fn encrypt_randomness_bound(self: &CL_HSMqk) -> &Mpz;
