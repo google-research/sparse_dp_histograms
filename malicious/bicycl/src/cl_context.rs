@@ -215,6 +215,12 @@ impl CLContext {
         }
     }
 
+    /// Check if an integer is in the range [0, M).
+    #[allow(non_snake_case)]
+    pub fn is_in_ZM(&self, v: &Integer) -> bool {
+        0 <= *v && *v < *self.get_M()
+    }
+
     /// Check if a group element is in the subgroup F.
     #[allow(non_snake_case)]
     pub fn is_in_F(&self, v: &GroupElement) -> bool {
@@ -449,5 +455,16 @@ pub(crate) mod tests {
         let ge = cl_ctx.mul_in_G_hat(&cl_ctx.power_of_f(&exp), &cl_ctx.power_of_h(&exp));
         let ge_prime = cl_ctx.exp_in_G_hat(g, &exp);
         assert_eq!(ge_prime, ge);
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn test_is_in_ZM() {
+        let cl_ctx = make_test_cl_context();
+        assert!(cl_ctx.is_in_ZM(&Integer::ZERO));
+        assert!(cl_ctx.is_in_ZM(Integer::ONE));
+        assert!(cl_ctx.is_in_ZM(&((*cl_ctx.get_M()).clone() - Integer::ONE)));
+        assert!(!cl_ctx.is_in_ZM(Integer::NEG_ONE));
+        assert!(!cl_ctx.is_in_ZM(&cl_ctx.get_M()));
     }
 }
