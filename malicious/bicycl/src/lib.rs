@@ -17,3 +17,4 @@ pub mod group_element;
 mod mpz;
 pub mod traits;
 mod utils;
+pub mod zk;

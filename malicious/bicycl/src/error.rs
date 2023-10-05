@@ -21,6 +21,7 @@ pub enum Error {
     RuntimeError(String),
     DecryptionError(String),
     OtherException(String),
+    ProtocolError(String),
 }
 
 impl From<cxx::Exception> for Error {
