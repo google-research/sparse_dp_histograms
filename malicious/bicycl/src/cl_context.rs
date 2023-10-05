@@ -320,9 +320,18 @@ mod ffi {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use rug::ops::Pow;
+
+    pub(crate) fn make_test_cl_context() -> CLContext {
+        let q = (Integer::from(1) << 127) - 1;
+        let k = 1;
+        let seclevel = 112;
+        let cl_ctx = CLContext::new(&q, k, seclevel);
+        assert!(cl_ctx.is_ok());
+        cl_ctx.unwrap()
+    }
 
     #[test]
     fn test_constructor_fail() {
@@ -356,19 +365,10 @@ mod tests {
         assert_eq!(*cl_ctx.get_M(), q.pow(k as u32));
     }
 
-    fn make_cl_context() -> CLContext {
-        let q = (Integer::from(1) << 127) - 1;
-        let k = 1;
-        let seclevel = 112;
-        let cl_ctx = CLContext::new(&q, k, seclevel);
-        assert!(cl_ctx.is_ok());
-        cl_ctx.unwrap()
-    }
-
     #[test]
     #[allow(non_snake_case)]
     fn test_easy_dlog_subgroup() {
-        let cl_ctx = make_cl_context();
+        let cl_ctx = make_test_cl_context();
         let M = cl_ctx.get_M();
         assert!(cl_ctx.power_of_f(&M).is_one());
         assert!(cl_ctx.is_in_F(cl_ctx.get_f()));
@@ -395,7 +395,7 @@ mod tests {
     #[test]
     #[allow(non_snake_case)]
     fn test_h_and_gamma() {
-        let cl_ctx = make_cl_context();
+        let cl_ctx = make_test_cl_context();
         let h = cl_ctx.get_h();
         let gamma = cl_ctx.get_gamma();
         let M = cl_ctx.get_M();
@@ -420,7 +420,7 @@ mod tests {
 
     #[test]
     fn test_mul() {
-        let cl_ctx = make_cl_context();
+        let cl_ctx = make_test_cl_context();
 
         let h = cl_ctx.get_h();
         let h_sq = cl_ctx.power_of_h(&Integer::from(2));
@@ -435,7 +435,7 @@ mod tests {
 
     #[test]
     fn test_exp() {
-        let cl_ctx = make_cl_context();
+        let cl_ctx = make_test_cl_context();
         let exp = Integer::from(1337);
 
         let h = cl_ctx.get_h();
