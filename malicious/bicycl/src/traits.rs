@@ -111,3 +111,62 @@ pub trait LHEScheme {
         m: &Self::Message,
     ) -> Self::Ciphertext;
 }
+
+/// Trait for \Sigma protocols, which are public-coin three-round protocols
+/// between a prover and a verifier of the following form:
+///
+/// 1. The prover sends a commitment.
+/// 2. The verifier sends a randomly sampled challenge.
+/// 3. The prover sends a response.
+///
+/// Finally, the verifier accepts or reject depending on the transcript.
+pub trait SigmaProtocol {
+    /// Type of the public statement to prove.
+    type Statement;
+    /// Type of the secret witness to prove.
+    type Witness;
+    /// Type of the first message from the prover to the verifier.
+    type Commitment;
+    /// Type of the second (randomly sampled) message from the verifier to the
+    /// prover.
+    type Challenge;
+    /// Type of the third message from the prover to the verifier.
+    type Response;
+    /// State that the prover needs to keep around between commit and response.
+    type ProverState;
+
+    /// Test if the provided witness is actually valid for the statement.
+    fn check_witness(&self, statement: &Self::Statement, witness: &Self::Witness) -> bool;
+
+    /// Compute the first (commitment) message of the prover for a given
+    /// `statement` and `witness` and output `state` needed to respond to
+    /// challenges.
+    fn commit(
+        &self,
+        statement: &Self::Statement,
+        witness: &Self::Witness,
+    ) -> (Self::Commitment, Self::ProverState);
+
+    /// Sample a random challenge.
+    fn challenge(&self) -> Self::Challenge;
+
+    /// Compute the third message (response) of the prover for a given
+    /// `statement`, `witness`, `state`.
+    fn respond(
+        &self,
+        state: &Self::ProverState,
+        y: &Self::Statement,
+        x: &Self::Witness,
+        challenge: &Self::Challenge,
+    ) -> Self::Response;
+
+    /// Verify the transcript (`commitment`, `challenge`, `response`) for a
+    /// given `statement`.
+    fn verify(
+        &self,
+        statement: &Self::Statement,
+        commitment: &Self::Commitment,
+        challenge: &Self::Challenge,
+        response: &Self::Response,
+    ) -> bool;
+}
