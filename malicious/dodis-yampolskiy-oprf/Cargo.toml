@@ -22,3 +22,4 @@ license = "GPL-3.0-or-later"
 bicycl = { path = "../bicycl" }
 curve25519-dalek = { version = "4.1", features = [ "rand_core" ] }
 rand = "0.8"
+rug = "1.22"
