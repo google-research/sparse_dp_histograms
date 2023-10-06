@@ -134,9 +134,15 @@ pub trait SigmaProtocol {
     type Response;
     /// State that the prover needs to keep around between commit and response.
     type ProverState;
+    /// `Error` type that is returned in the `Result`s.
+    type Error;
 
     /// Test if the provided witness is actually valid for the statement.
-    fn check_witness(&self, statement: &Self::Statement, witness: &Self::Witness) -> bool;
+    fn check_witness(
+        &self,
+        statement: &Self::Statement,
+        witness: &Self::Witness,
+    ) -> Result<(), Error>;
 
     /// Compute the first (commitment) message of the prover for a given
     /// `statement` and `witness` and output `state` needed to respond to
@@ -145,7 +151,7 @@ pub trait SigmaProtocol {
         &self,
         statement: &Self::Statement,
         witness: &Self::Witness,
-    ) -> (Self::Commitment, Self::ProverState);
+    ) -> Result<(Self::Commitment, Self::ProverState), Error>;
 
     /// Sample a random challenge.
     fn challenge(&self) -> Self::Challenge;
@@ -158,7 +164,7 @@ pub trait SigmaProtocol {
         y: &Self::Statement,
         x: &Self::Witness,
         challenge: &Self::Challenge,
-    ) -> Self::Response;
+    ) -> Result<Self::Response, Error>;
 
     /// Verify the transcript (`commitment`, `challenge`, `response`) for a
     /// given `statement`.
