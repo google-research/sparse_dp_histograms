@@ -504,13 +504,13 @@ impl<'a> SigmaProtocol for PoDec<'a> {
         let r_m = random_integer_below(&self.params.cl_ctx.get_M(), self.params.zk_parameter);
         let c2_r = self.params.cl_ctx.mul_in_G_hat(
             &self.params.cl_ctx.power_of_f(&r_m),
-            &if self.hsmcl.is_compact() {
-                self.params
+            &self.params.cl_ctx.cond_map_psi_Gamma_to_G(
+                self.hsmcl.is_compact(),
+                &self
+                    .params
                     .cl_ctx
-                    .map_psi_Gamma_to_G(&self.params.cl_ctx.exp_in_Gamma_hat(c1, &r_sk))
-            } else {
-                self.params.cl_ctx.exp_in_G_hat(c1, &r_sk)
-            },
+                    .exp_in_group(self.hsmcl.is_compact(), c1, &r_sk),
+            ),
         );
         Ok(((pk_r, c2_r), (r_sk, r_m)))
     }
@@ -549,13 +549,13 @@ impl<'a> SigmaProtocol for PoDec<'a> {
     ) -> bool {
         let lhs = self.params.cl_ctx.mul_in_G_hat(
             &self.params.cl_ctx.power_of_f(u_m),
-            &if self.hsmcl.is_compact() {
-                self.params
+            &self.params.cl_ctx.cond_map_psi_Gamma_to_G(
+                self.hsmcl.is_compact(),
+                &self
+                    .params
                     .cl_ctx
-                    .map_psi_Gamma_to_G(&self.params.cl_ctx.exp_in_Gamma_hat(c1, u_sk))
-            } else {
-                self.params.cl_ctx.exp_in_G_hat(c1, u_sk)
-            },
+                    .exp_in_group(self.hsmcl.is_compact(), c1, u_sk),
+            ),
         );
         let rhs = self
             .params

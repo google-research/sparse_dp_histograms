@@ -49,11 +49,7 @@ impl<'a> LHEScheme for HSMCLqk<'a> {
     }
 
     fn compute_public_key(&self, sk: &Self::SecretKey) -> Self::PublicKey {
-        if self.compact {
-            self.cl_ctx.power_of_gamma(sk)
-        } else {
-            self.cl_ctx.power_of_h(sk)
-        }
+        self.cl_ctx.power_of_generator(self.compact, sk)
     }
 
     fn encrypt(
@@ -72,9 +68,7 @@ impl<'a> LHEScheme for HSMCLqk<'a> {
         m: &Self::Message,
         r: &Self::Randomness,
     ) -> Result<Self::Ciphertext, Error> {
-        if (self.compact && !self.cl_ctx.is_in_Gamma_hat(pk))
-            || (!self.compact && !self.cl_ctx.is_in_G_hat(pk))
-        {
+        if !self.cl_ctx.is_in_group(self.compact, pk) {
             return Err(Error::InvalidArgument(
                 "pk is in the wrong group".to_owned(),
             ));
@@ -84,18 +78,12 @@ impl<'a> LHEScheme for HSMCLqk<'a> {
                 "m lies not in the message space".to_owned(),
             ));
         }
-        let c1 = if self.compact {
-            self.cl_ctx.power_of_gamma(r)
-        } else {
-            self.cl_ctx.power_of_h(r)
-        };
+        let c1 = self.cl_ctx.power_of_generator(self.compact, r);
         let c2 = self.cl_ctx.mul_in_G_hat(
-            &if self.compact {
-                self.cl_ctx
-                    .map_psi_Gamma_to_G(&self.cl_ctx.exp_in_Gamma_hat(pk, r))
-            } else {
-                self.cl_ctx.exp_in_G_hat(pk, r)
-            },
+            &self.cl_ctx.cond_map_psi_Gamma_to_G(
+                self.compact,
+                &self.cl_ctx.exp_in_group(self.compact, pk, r),
+            ),
             &self.cl_ctx.power_of_f(m),
         );
         Ok((c1, c2))
@@ -104,17 +92,10 @@ impl<'a> LHEScheme for HSMCLqk<'a> {
     fn decrypt(&self, sk: &Self::SecretKey, c: &Self::Ciphertext) -> Result<Self::Message, Error> {
         let (c1, c2) = c;
         let fm = {
-            let t = if self.compact {
-                let mut t = self.cl_ctx.exp_in_Gamma_hat(c1, sk);
-                t = self.cl_ctx.map_psi_Gamma_to_G(&t);
-                t.invert();
-                t
-            } else {
-                let mut t = self.cl_ctx.exp_in_G_hat(c1, sk);
-                t.invert();
-                t
-            };
-            self.cl_ctx.mul_in_G_hat(c2, &t)
+            let mut t = self.cl_ctx.exp_in_group(self.compact, c1, sk);
+            t.invert();
+            self.cl_ctx
+                .mul_in_G_hat(c2, &self.cl_ctx.cond_map_psi_Gamma_to_G(self.compact, &t))
         };
 
         self.cl_ctx
@@ -146,33 +127,29 @@ impl<'a> LHEScheme for HSMCLqk<'a> {
     ) -> Self::Ciphertext {
         let (c1, c2) = c;
         (
-            if self.compact {
-                self.cl_ctx
-                    .mul_in_Gamma_hat(c1, &self.cl_ctx.power_of_gamma(r))
-            } else {
-                self.cl_ctx.mul_in_G_hat(c1, &self.cl_ctx.power_of_h(r))
-            },
+            self.cl_ctx.mul_in_group(
+                self.compact,
+                c1,
+                &self.cl_ctx.power_of_generator(self.compact, r),
+            ),
             self.cl_ctx.mul_in_G_hat(
                 c2,
-                &if self.compact {
-                    self.cl_ctx
-                        .map_psi_Gamma_to_G(&self.cl_ctx.exp_in_Gamma_hat(pk, r))
-                } else {
-                    self.cl_ctx.exp_in_G_hat(pk, r)
-                },
+                &self.cl_ctx.cond_map_psi_Gamma_to_G(
+                    self.compact,
+                    &self.cl_ctx.exp_in_group(self.compact, pk, r),
+                ),
             ),
         )
     }
 
     /// Perform homomorphic addition of two ciphertexts.
-    fn add_ciphertexts(&self, c1: &Self::Ciphertext, c2: &Self::Ciphertext) -> Self::Ciphertext {
-        let ((c1_1, c1_2), (c2_1, c2_2)) = (c1, c2);
+    fn add_ciphertexts(
+        &self,
+        (c1_1, c1_2): &Self::Ciphertext,
+        (c2_1, c2_2): &Self::Ciphertext,
+    ) -> Self::Ciphertext {
         (
-            if self.compact {
-                self.cl_ctx.mul_in_Gamma_hat(c1_1, c2_1)
-            } else {
-                self.cl_ctx.mul_in_G_hat(c1_1, c2_1)
-            },
+            self.cl_ctx.mul_in_group(self.compact, c1_1, c2_1),
             self.cl_ctx.mul_in_G_hat(c1_2, c2_2),
         )
     }
@@ -180,10 +157,9 @@ impl<'a> LHEScheme for HSMCLqk<'a> {
     /// Perform homomorphic addition of a ciphertext and a message.
     fn add_ciphertext_and_message(
         &self,
-        c: &Self::Ciphertext,
+        (c1, c2): &Self::Ciphertext,
         m: &Self::Message,
     ) -> Self::Ciphertext {
-        let (c1, c2) = c;
         (
             c1.clone(),
             self.cl_ctx.mul_in_G_hat(c2, &self.cl_ctx.power_of_f(m)),
@@ -193,16 +169,11 @@ impl<'a> LHEScheme for HSMCLqk<'a> {
     /// Perform homomorphic multiplication of a ciphertext and a message.
     fn mul_ciphertext_and_message(
         &self,
-        c: &Self::Ciphertext,
+        (c1, c2): &Self::Ciphertext,
         m: &Self::Message,
     ) -> Self::Ciphertext {
-        let (c1, c2) = c;
         (
-            if self.compact {
-                self.cl_ctx.exp_in_Gamma_hat(c1, m)
-            } else {
-                self.cl_ctx.exp_in_G_hat(c1, m)
-            },
+            self.cl_ctx.exp_in_group(self.compact, c1, m),
             self.cl_ctx.exp_in_G_hat(c2, m),
         )
     }
