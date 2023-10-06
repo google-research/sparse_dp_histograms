@@ -11,6 +11,7 @@
 // GNU General Public License for more details.
 
 use crate::error::Error;
+use std::borrow::Borrow;
 
 /// Interface for a linearly homomorphic encryption scheme.
 pub trait LHEScheme {
@@ -110,6 +111,52 @@ pub trait LHEScheme {
         c: &Self::Ciphertext,
         m: &Self::Message,
     ) -> Self::Ciphertext;
+}
+
+/// Interface that enables an `LHEScheme` to be used as a threshold enryption
+/// scheme.
+pub trait ThresholdLHEScheme: LHEScheme {
+    /// Type of a share of a secret key.
+    type SecretKeyShare;
+    /// Type of a share of a public key.
+    type PublicKeyShare;
+    /// Type of a share of a partial decryption.
+    type PartialDecryption;
+
+    /// Generate shares of the secret and the public key.
+    fn generate_key_share(&self) -> (Self::SecretKeyShare, Self::PublicKeyShare);
+
+    /// Combined compute the public key from a collection of shares.
+    fn combine_public_key_shares(
+        &self,
+        pks: impl IntoIterator<Item = impl Borrow<Self::PublicKeyShare>>,
+    ) -> Self::PublicKey;
+
+    /// Partially decrypt a ciphertext `c` using the a secret key share `sk_i`
+    /// and obtain a new ciphertext which is an encryption under the other
+    /// parties public keys, i.e., the used key share is no longer needed to
+    /// decrypt the resulting ciphertext.
+    fn decrypt_to_ciphertext(
+        &self,
+        sk_i: &Self::SecretKeyShare,
+        c: &Self::Ciphertext,
+    ) -> Self::Ciphertext;
+
+    /// Partially decrypt a ciphertext `c` using the a secret key share `sk_i`
+    /// and obtain a partial decryption.
+    fn partially_decrypt(
+        &self,
+        sk_i: &Self::SecretKeyShare,
+        c: &Self::Ciphertext,
+    ) -> Self::PartialDecryption;
+
+    /// Combine the partial decryptions `pds` to complete the decryption of a
+    /// ciphertext `c`.
+    fn complete_decryption(
+        &self,
+        c: &Self::Ciphertext,
+        pds: impl IntoIterator<Item = impl Borrow<Self::PartialDecryption>>,
+    ) -> Result<Self::Message, Error>;
 }
 
 /// Trait for \Sigma protocols, which are public-coin three-round protocols
