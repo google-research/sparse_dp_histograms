@@ -148,6 +148,25 @@ impl CLContext {
         Self::mul_in_class_group(self.cl_hsmqk.Cl_DeltaK(), g1, g2)
     }
 
+    /// Compute g1 * g2 either in \hat{\Gamma} = Cl(\Delta_K) or in \hat{G} =
+    /// Cl(\Delta_(q^k)) depending on the first parameter.
+    ///
+    /// Convenience wrapper around `exp_in_G_hat` and `exp_in_Gamma_hat`.
+    #[allow(non_snake_case)]
+    #[inline(always)]
+    pub fn mul_in_group(
+        &self,
+        in_Gamma: bool,
+        g1: &GroupElement,
+        g2: &GroupElement,
+    ) -> GroupElement {
+        if in_Gamma {
+            self.mul_in_Gamma_hat(g1, g2)
+        } else {
+            self.mul_in_G_hat(g1, g2)
+        }
+    }
+
     #[allow(non_snake_case)]
     fn mul_in_class_group(
         cl: &ffi::ClassGroup,
@@ -169,6 +188,20 @@ impl CLContext {
     pub fn exp_in_Gamma_hat(&self, base: &GroupElement, exp: &Integer) -> GroupElement {
         debug_assert!(self.is_in_Gamma_hat(base));
         Self::exp_in_class_group(self.cl_hsmqk.Cl_DeltaK(), base, exp)
+    }
+
+    /// Compute g^e either in \hat{\Gamma} = Cl(\Delta_K) or in \hat{G} =
+    /// Cl(\Delta_(q^k)) depending on the first parameter.
+    ///
+    /// Convenience wrapper around `exp_in_G_hat` and `exp_in_Gamma_hat`.
+    #[allow(non_snake_case)]
+    #[inline(always)]
+    pub fn exp_in_group(&self, in_Gamma: bool, base: &GroupElement, exp: &Integer) -> GroupElement {
+        if in_Gamma {
+            self.exp_in_Gamma_hat(base, exp)
+        } else {
+            self.exp_in_G_hat(base, exp)
+        }
     }
 
     #[allow(non_snake_case)]
@@ -193,6 +226,19 @@ impl CLContext {
     /// Compute \gamma^e, where \gamma is the generator of \Gamma
     pub fn power_of_gamma(&self, e: &Integer) -> GroupElement {
         self.exp_in_Gamma_hat(&self.gamma, e)
+    }
+
+    /// Compute either \gamma^e or h^e depending on the first parameter.
+    ///
+    /// Convenience wrapper around `power_of_gamma` and `power_of_h`.
+    #[allow(non_snake_case)]
+    #[inline(always)]
+    pub fn power_of_generator(&self, in_Gamma: bool, e: &Integer) -> GroupElement {
+        if in_Gamma {
+            self.power_of_gamma(e)
+        } else {
+            self.power_of_h(e)
+        }
     }
 
     /// Compute f^e, where f is the generator of F.
@@ -239,6 +285,19 @@ impl CLContext {
         self.cl_hsmqk.in_Cl_DeltaKSq(v.as_raw())
     }
 
+    /// Check if a group element is in \hat{Gamma} or G depending on the first parameter.
+    ///
+    /// Convenience wrapper around `is_in_Gamma_hat` and `is_in_G`.
+    #[allow(non_snake_case)]
+    #[inline(always)]
+    pub fn is_in_group(&self, in_Gamma: bool, v: &GroupElement) -> bool {
+        if in_Gamma {
+            self.is_in_Gamma_hat(v)
+        } else {
+            self.is_in_G_hat(v)
+        }
+    }
+
     /// Map \pi: \hat{G} -> \hat{\Gamma}
     #[allow(non_snake_case)]
     pub fn map_pi_G_to_Gamma(&self, v: &GroupElement) -> GroupElement {
@@ -255,6 +314,19 @@ impl CLContext {
         let t = v.clone();
         unsafe { ffi::cl_hsmqk_from_Cl_DeltaK_to_Cl_Delta(&self.cl_hsmqk, t.as_raw()) };
         t
+    }
+
+    /// Applies the map \psi if the first argument is true.
+    ///
+    /// Convenience wrapper around `map_psi_Gamma_to_G`.
+    #[allow(non_snake_case)]
+    #[inline(always)]
+    pub fn cond_map_psi_Gamma_to_G(&self, cond: bool, v: &GroupElement) -> GroupElement {
+        if cond {
+            self.map_psi_Gamma_to_G(v)
+        } else {
+            v.clone()
+        }
     }
 
     /// Return bound on secret keys (i.e., large enough to induce an
@@ -408,12 +480,20 @@ pub(crate) mod tests {
         assert!(!cl_ctx.is_in_Gamma_hat(h));
         assert!(cl_ctx.power_of_h(&Integer::from(0)).is_one());
         assert_eq!(*h, cl_ctx.power_of_h(&Integer::from(1)));
+        assert_eq!(
+            cl_ctx.power_of_generator(false, &Integer::from(42)),
+            cl_ctx.power_of_h(&Integer::from(42))
+        );
 
         assert!(!cl_ctx.is_in_F(gamma));
         assert!(!cl_ctx.is_in_G_hat(gamma));
         assert!(cl_ctx.is_in_Gamma_hat(gamma));
         assert!(cl_ctx.power_of_gamma(&Integer::from(0)).is_one());
         assert_eq!(*gamma, cl_ctx.power_of_gamma(&Integer::from(1)));
+        assert_eq!(
+            cl_ctx.power_of_generator(true, &Integer::from(42)),
+            cl_ctx.power_of_gamma(&Integer::from(42))
+        );
 
         let pi_h = &cl_ctx.map_pi_G_to_Gamma(h);
         assert_eq!(cl_ctx.exp_in_Gamma_hat(pi_h, &M), *gamma);
