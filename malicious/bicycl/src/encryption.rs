@@ -13,9 +13,10 @@
 use crate::cl_context::CLContext;
 use crate::error::Error;
 use crate::group_element::GroupElement;
-use crate::traits::LHEScheme;
+use crate::traits::{LHEScheme, ThresholdLHEScheme};
 use crate::utils::random_integer_bits;
 use rug::Integer;
+use std::borrow::Borrow;
 
 /// The HSM-CLqk encryption scheme.
 pub struct HSMCLqk<'a> {
@@ -176,6 +177,82 @@ impl<'a> LHEScheme for HSMCLqk<'a> {
             self.cl_ctx.exp_in_group(self.compact, c1, m),
             self.cl_ctx.exp_in_G_hat(c2, m),
         )
+    }
+}
+
+impl<'a> ThresholdLHEScheme for HSMCLqk<'a> {
+    type SecretKeyShare = Self::SecretKey;
+    type PublicKeyShare = Self::PublicKey;
+    type PartialDecryption = GroupElement;
+
+    /// Generate shares of the secret and the public key.
+    fn generate_key_share(&self) -> (Self::SecretKeyShare, Self::PublicKeyShare) {
+        self.generate_key_pair()
+    }
+
+    fn combine_public_key_shares<'b>(
+        &self,
+        pks: impl IntoIterator<Item = impl Borrow<Self::PublicKeyShare>>,
+    ) -> Result<Self::PublicKey, Error> {
+        let mut pks = pks.into_iter().peekable();
+        let mut pk = pks
+            .next()
+            .ok_or_else(|| Error::InvalidArgument("iterator is empty".to_owned()))?
+            .borrow()
+            .clone();
+        for pk_i in pks {
+            pk = self.cl_ctx.mul_in_group(self.compact, &pk, pk_i.borrow());
+        }
+        Ok(pk)
+    }
+
+    fn decrypt_to_ciphertext(
+        &self,
+        sk_i: &Self::SecretKeyShare,
+        (c1, c2): &Self::Ciphertext,
+    ) -> Self::Ciphertext {
+        (c1.clone(), {
+            let mut t = self.cl_ctx.exp_in_group(self.compact, c1, sk_i);
+            t.invert();
+            self.cl_ctx
+                .mul_in_G_hat(c2, &self.cl_ctx.cond_map_psi_Gamma_to_G(self.compact, &t))
+        })
+    }
+
+    fn partially_decrypt(
+        &self,
+        sk_i: &Self::SecretKeyShare,
+        (c1, _): &Self::Ciphertext,
+    ) -> Self::PartialDecryption {
+        self.cl_ctx.exp_in_group(self.compact, c1, sk_i)
+    }
+
+    fn complete_decryption(
+        &self,
+        (_, c2): &Self::Ciphertext,
+        pds: impl IntoIterator<Item = impl Borrow<Self::PartialDecryption>>,
+    ) -> Result<Self::Message, Error> {
+        let mut pds = pds.into_iter();
+        let mut fm = pds
+            .next()
+            .ok_or_else(|| Error::InvalidArgument("iterator is non-empty".to_owned()))?
+            .borrow()
+            .clone();
+        for pd_i in pds {
+            fm = self.cl_ctx.mul_in_group(self.compact, &fm, pd_i.borrow());
+        }
+        fm.invert();
+        fm = self
+            .cl_ctx
+            .mul_in_G_hat(&self.cl_ctx.cond_map_psi_Gamma_to_G(self.compact, &fm), c2);
+        self.cl_ctx
+            .is_in_F(&fm)
+            .then(|| {
+                self.cl_ctx
+                    .dlog_in_F(&fm)
+                    .expect("we have already checked that fm is in F")
+            })
+            .ok_or_else(|| Error::DecryptionError("decryption failed".to_owned()))
     }
 }
 
@@ -376,5 +453,57 @@ mod tests {
     #[test]
     fn test_encryption_multiplication_with_message_compact() {
         test_encryption_multiplication_with_message_w_param(true);
+    }
+
+    fn test_threshold_encryption_correctness_w_param(compact: bool) {
+        let cl_ctx = make_test_cl_context();
+        let hsmcl = HSMCLqk::new(&cl_ctx, compact);
+        assert_eq!(hsmcl.is_compact(), compact);
+        let num_parties = 3;
+        let key_pair_shares: Vec<_> = (0..num_parties)
+            .map(|_| hsmcl.generate_key_share())
+            .collect();
+        assert!(hsmcl.combine_public_key_shares(&[]).is_err());
+        let pk = hsmcl.combine_public_key_shares(key_pair_shares.iter().map(|(_, pk_i)| pk_i));
+        assert!(pk.is_ok());
+        let pk = pk.unwrap();
+        for m in make_test_messages(&cl_ctx.get_M()) {
+            let (c, _) = hsmcl.encrypt(&pk, &m).expect("encryption should succeed");
+            assert!(cl_ctx.is_in_group(compact, &c.0));
+            assert!(cl_ctx.is_in_G_hat(&c.1));
+            {
+                let pds: Vec<_> = key_pair_shares
+                    .iter()
+                    .map(|(sk_i, _)| hsmcl.partially_decrypt(sk_i, &c))
+                    .collect();
+                assert!(hsmcl.complete_decryption(&c, &[]).is_err());
+                let decrypted_m = hsmcl.complete_decryption(&c, &pds);
+                assert!(decrypted_m.is_ok());
+                let decrypted_m = decrypted_m.unwrap();
+                assert_eq!(decrypted_m, m);
+            }
+            {
+                let mut c_new = c.clone();
+                for (sk_i, _) in key_pair_shares.iter().take(num_parties - 1) {
+                    c_new = hsmcl.decrypt_to_ciphertext(sk_i, &c_new);
+                    assert!(cl_ctx.is_in_group(compact, &c_new.0));
+                    assert!(cl_ctx.is_in_G_hat(&c_new.1));
+                }
+                let decrypted_m = hsmcl.decrypt(&key_pair_shares[num_parties - 1].0, &c_new);
+                assert!(decrypted_m.is_ok());
+                let decrypted_m = decrypted_m.unwrap();
+                assert_eq!(decrypted_m, m);
+            }
+        }
+    }
+
+    #[test]
+    fn test_threshold_encryption_correctness() {
+        test_threshold_encryption_correctness_w_param(false);
+    }
+
+    #[test]
+    fn test_threshold_encryption_correctness_compact() {
+        test_threshold_encryption_correctness_w_param(true);
     }
 }
