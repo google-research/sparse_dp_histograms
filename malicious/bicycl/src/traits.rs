@@ -16,15 +16,15 @@ use std::borrow::Borrow;
 /// Interface for a linearly homomorphic encryption scheme.
 pub trait LHEScheme {
     /// Type of a secret key.
-    type SecretKey;
+    type SecretKey: Clone;
     /// Type of a public key.
-    type PublicKey;
+    type PublicKey: Clone;
     /// Type of a message.
-    type Message;
+    type Message: Clone;
     /// Type of a ciphertext.
-    type Ciphertext;
+    type Ciphertext: Clone;
     /// Type of randomness used in encryption.
-    type Randomness;
+    type Randomness: Clone;
 
     /// Generate a new secret key.
     fn generate_secret_key(&self) -> Self::SecretKey;
@@ -117,11 +117,11 @@ pub trait LHEScheme {
 /// scheme.
 pub trait ThresholdLHEScheme: LHEScheme {
     /// Type of a share of a secret key.
-    type SecretKeyShare;
+    type SecretKeyShare: Clone;
     /// Type of a share of a public key.
-    type PublicKeyShare;
+    type PublicKeyShare: Clone;
     /// Type of a share of a partial decryption.
-    type PartialDecryption;
+    type PartialDecryption: Clone;
 
     /// Generate shares of the secret and the public key.
     fn generate_key_share(&self) -> (Self::SecretKeyShare, Self::PublicKeyShare);
