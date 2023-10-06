@@ -68,7 +68,7 @@ pub trait LHEScheme {
 
     /// Decrypt a ciphertext `c` using the secret key `sk` and obtain the
     /// encrypted message if successful.
-    fn decrypt(&self, sk: &Self::SecretKey, c: &Self::Ciphertext) -> Option<Self::Message>;
+    fn decrypt(&self, sk: &Self::SecretKey, c: &Self::Ciphertext) -> Result<Self::Message, Error>;
 
     /// Rerandomize a ciphertext `c` under the public key `pk`. Obtain a new
     /// ciphertext containing the same message and the randomness used for

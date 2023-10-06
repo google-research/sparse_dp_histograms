@@ -19,6 +19,7 @@ pub enum Error {
     RangeError(String),
     InvalidArgument(String),
     RuntimeError(String),
+    DecryptionError(String),
     OtherException(String),
 }
 

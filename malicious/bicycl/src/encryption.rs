@@ -101,7 +101,7 @@ impl<'a> LHEScheme for HSMCLqk<'a> {
         Ok((c1, c2))
     }
 
-    fn decrypt(&self, sk: &Self::SecretKey, c: &Self::Ciphertext) -> Option<Self::Message> {
+    fn decrypt(&self, sk: &Self::SecretKey, c: &Self::Ciphertext) -> Result<Self::Message, Error> {
         let (c1, c2) = c;
         let fm = {
             let t = if self.compact {
@@ -116,15 +116,15 @@ impl<'a> LHEScheme for HSMCLqk<'a> {
             };
             self.cl_ctx.mul_in_G_hat(c2, &t)
         };
-        if self.cl_ctx.is_in_F(&fm) {
-            Some(
+
+        self.cl_ctx
+            .is_in_F(&fm)
+            .then(|| {
                 self.cl_ctx
                     .dlog_in_F(&fm)
-                    .expect("we have already checked that fm is in F"),
-            )
-        } else {
-            None
-        }
+                    .expect("we have already checked that fm is in F")
+            })
+            .ok_or(Error::DecryptionError("decryption failed".to_owned()))
     }
 
     /// Rerandomize a ciphertext.
@@ -265,7 +265,7 @@ mod tests {
             }
             assert!(cl_ctx.is_in_G_hat(&c.1));
             let decrypted_m = hsmcl.decrypt(&sk, &c);
-            assert!(decrypted_m.is_some());
+            assert!(decrypted_m.is_ok());
             let decrypted_m = decrypted_m.unwrap();
             assert_eq!(decrypted_m, m);
 
@@ -292,7 +292,7 @@ mod tests {
             let (d, r) = hsmcl.rerandomize(&pk, &c);
             assert_ne!(c, d);
             let decrypted_m = hsmcl.decrypt(&sk, &d);
-            assert!(decrypted_m.is_some());
+            assert!(decrypted_m.is_ok());
             let decrypted_m = decrypted_m.unwrap();
             assert_eq!(decrypted_m, m);
 
@@ -322,7 +322,7 @@ mod tests {
             let (c2, _) = hsmcl.encrypt(&pk, &m2).expect("encryption should succeed");
             let d = hsmcl.add_ciphertexts(&c1, &c2);
             let decrypted_m = hsmcl.decrypt(&sk, &d);
-            assert!(decrypted_m.is_some());
+            assert!(decrypted_m.is_ok());
             let decrypted_m = decrypted_m.unwrap();
             let expected_m = {
                 let mut t = m1 + m2;
@@ -354,7 +354,7 @@ mod tests {
             let (c1, _) = hsmcl.encrypt(&pk, &m1).expect("encryption should succeed");
             let d = hsmcl.add_ciphertext_and_message(&c1, &m2);
             let decrypted_m = hsmcl.decrypt(&sk, &d);
-            assert!(decrypted_m.is_some());
+            assert!(decrypted_m.is_ok());
             let decrypted_m = decrypted_m.unwrap();
             let expected_m = {
                 let mut t = m1 + m2;
@@ -386,7 +386,7 @@ mod tests {
             let (c1, _) = hsmcl.encrypt(&pk, &m1).expect("encryption should succeed");
             let d = hsmcl.mul_ciphertext_and_message(&c1, &m2);
             let decrypted_m = hsmcl.decrypt(&sk, &d);
-            assert!(decrypted_m.is_some());
+            assert!(decrypted_m.is_ok());
             let decrypted_m = decrypted_m.unwrap();
             let expected_m = {
                 let mut t = m1 * m2;
