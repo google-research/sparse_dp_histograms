@@ -126,11 +126,11 @@ pub trait ThresholdLHEScheme: LHEScheme {
     /// Generate shares of the secret and the public key.
     fn generate_key_share(&self) -> (Self::SecretKeyShare, Self::PublicKeyShare);
 
-    /// Combined compute the public key from a collection of shares.
+    /// Combined compute the public key from a non-empty collection of shares.
     fn combine_public_key_shares(
         &self,
         pks: impl IntoIterator<Item = impl Borrow<Self::PublicKeyShare>>,
-    ) -> Self::PublicKey;
+    ) -> Result<Self::PublicKey, Error>;
 
     /// Partially decrypt a ciphertext `c` using the a secret key share `sk_i`
     /// and obtain a new ciphertext which is an encryption under the other
